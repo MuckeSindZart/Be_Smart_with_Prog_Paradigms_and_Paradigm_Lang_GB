@@ -5,14 +5,14 @@
 //сортировки числа в списке в порядке убывания. Можно использовать любой алгоритм сортировки.
 
 function bubbleSortDescending(numbers) {
-    var n = numbers.length;
-    var swapped;
+    let n = numbers.length;
+    let swapped;
   
     do {
       swapped = false;
-      for (var i = 0; i < n - 1; i++) {
+      for (let i = 0; i < n - 1; i++) {
         if (numbers[i] < numbers[i + 1]) {
-          var temp = numbers[i];
+          let temp = numbers[i];
           numbers[i] = numbers[i + 1];
           numbers[i + 1] = temp;
           swapped = true;
@@ -25,7 +25,7 @@ function bubbleSortDescending(numbers) {
   
   //
   
-  var numbers = [5, 2, 9, 1, 5, 6];
+  let numbers = [5, 2, 9, 1, 5, 6];
   bubbleSortDescending(numbers);
   console.log(numbers); // Вывод: [9, 6, 5, 5, 2, 1]
   
@@ -40,6 +40,6 @@ function bubbleSortDescending(numbers) {
   
   //
   
-  var numbers = [5, 2, 9, 1, 5, 6];
-  sortDescending(numbers);
-  console.log(numbers); // Вывод: [9, 6, 5, 5, 2, 1]
+  let numbers2 = [5, 2, 9, 1, 5, 6];
+  sortDescending(numbers2);
+  console.log(numbers2); // Вывод: [9, 6, 5, 5, 2, 1]
