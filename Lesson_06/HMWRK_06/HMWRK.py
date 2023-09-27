@@ -1,101 +1,109 @@
 import time
-import os
 import threading
+import curses
 
-class Timer:
+""" Базовый класс для таймера """
+
+class TimerBase:
     def __init__(self):
         self.start_time = None
         self.paused_time = 0
         self.is_running = False
-        self.timer_thread = None
-        self.choice = 0 
 
+    # Метод для запуска таймера
     def start(self):
-        if not self.is_running:
-            self.start_time = time.time()
-            self.paused_time = 0  # Обнуляем время паузы
-            self.is_running = True
-            self.timer_thread = threading.Thread(target=self.update_timer)
-            self.timer_thread.start()
-        else:
-            # Если таймер уже запущен, обнуляем его
-            self.start_time = time.time()
-            self.paused_time = 0
+        self.reset()  # Всегда обнуляем таймер перед стартом
+        self.start_time = time.time()
+        self.is_running = True
 
+    # Метод для сброса таймера
+    def reset(self):
+        self.start_time = None
+        self.paused_time = 0
+        self.is_running = False
+
+    # Метод для приостановки таймера
     def pause(self):
         if self.is_running:
-            self.paused_time += time.time() - self.start_time
+            self.paused_time = self.elapsed_time()
             self.is_running = False
 
+    # Метод для возобновления таймера после паузы
     def resume(self):
         if not self.is_running:
             self.start_time = time.time()
             self.is_running = True
-            self.timer_thread = threading.Thread(target=self.update_timer)
-            self.timer_thread.start()
 
-    def stop(self):
+    # Метод для получения текущего времени, учитывая паузу
+    def elapsed_time(self):
         if self.is_running:
-            self.paused_time += time.time() - self.start_time
-            self.is_running = False
-
-    def get_elapsed_time(self):
-        if self.is_running:
-            return self.paused_time + (time.time() - self.start_time)
+            return time.time() - self.start_time + self.paused_time
         else:
             return self.paused_time
 
-    def update_timer(self):
-        while self.is_running:
-            time.sleep(1)  # Обновление каждую секунду
+""" Класс для таймера с текстовым интерфейсом в консоли """
 
-    def clear_screen(self):
-        if os.name == 'nt':
-            os.system('cls')  # Для Windows
-        else:
-            os.system('clear')  # Для Unix
+class ConsoleTimer(TimerBase):
+    def __init__(self, screen):
+        super().__init__()
+        self.lock = threading.Lock()
+        self.screen = screen
 
-    def draw_menu(self):
-        print("Введите номер действия: ")
-        print("1. Запустить секундомер")
-        print("2. Приостановить секундомер")
-        print("3. Возобновить секундомер")
-        print("4. Получить прошедшее время")
-        print("5. Выход")
+    # Метод для обновления текстового интерфейса
+    def update_display(self):
+        while True:
+            with self.lock:
+                self.screen.clear()
+                self.screen.addstr(f"Прошло времени: {self.elapsed_time():.2f} секунд.\n")
+                self.screen.addstr("Введите команду,\n нажав на кнопку:\n")
+                self.screen.addstr("1. Запустить\n")
+                self.screen.addstr("2. Приостановить\n")
+                self.screen.addstr("3. Возобновить\n")
+                self.screen.addstr("4. Остановить\n")
+                self.screen.addstr("5. Выход\n")
+                self.screen.refresh()
+                time.sleep(0.09) # Задержка позволяет управлять частотой обновления интерфейса и снижает нагрузку на процессор.
 
-    def draw_timer(self):
-        elapsed_time = self.get_elapsed_time()
-        print(f"Текущее время: {elapsed_time:.2f} секунд.")
-        time.sleep(0.06)  # Ожидание для обновления экрана
+    # Метод для получения команд пользователя
+    def get_user_input(self):
+        while True:
+            key = self.screen.getch()
+            if key == ord('1'):
+                self.start()
+            elif key == ord('2'):
+                self.pause()
+            elif key == ord('3'):
+                self.resume()
+            elif key == ord('4'):
+                self.reset()
+            elif key == ord('5'):
+                break
 
+    # Метод для запуска таймера с текстовым интерфейсом
+    def run(self):
+        curses.curs_set(0)  # Скрыть курсор
 
+        # Создаем поток для обновления текстового интерфейса
+        update_thread = threading.Thread(target=self.update_display)
+        update_thread.daemon = True
+        update_thread.start()
+    
+        # Создаем поток для получения команд пользователя
+        input_thread = threading.Thread(target=self.get_user_input)
+        input_thread.daemon = True
+        input_thread.start()
 
-# Функция для чтения пользовательского ввода
-def user_input(timer):
-    while True:
-        choice = input(f"{choice}").strip()
-        if choice == "1":
-            timer.start()
-        elif choice == "2":
-            timer.pause()
-        elif choice == "3":
-            timer.resume()
-        elif choice == "4":
-            print(f"Прошло {timer.get_elapsed_time():.2f} секунд.")
-        elif choice == "5":
-            timer.stop()
-            break
-        else:
-            print("Некорректный выбор. Пожалуйста, введите номер действия из списка.")
+        input_thread.join()  # Ждать завершения ввода
 
-# Пример использования класса таймера
-timer = Timer()
+""" Запуск """
 
-# Создаем поток для пользовательского ввода
-input_thread = threading.Thread(target=user_input, args=(timer,))
-input_thread.start()
+if __name__ == "__main__":
+    # Создаем экземпляр базового таймера для учета времени в приложении.
+    base_timer = TimerBase()
+    base_timer.start()
 
-while True:
-    timer.clear_screen()
-    timer.draw_menu()
-    timer.draw_timer()
+    # Используем curses.wrapper для инициализации curses-сессии и передачи объекта экрана (screen)
+    curses.wrapper(lambda screen: ConsoleTimer(screen).run())
+
+    print(f"Вы использовали таймер: {base_timer.elapsed_time():.2f} секунд.")
+    # Выводим сообщение о временем, которое вы провели в приложении.
